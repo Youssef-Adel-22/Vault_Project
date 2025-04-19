@@ -1,3 +1,4 @@
+#include "esp_system.h"
 #include <ESP32Servo.h>
 #include <string.h>
 #define LOCK_SERVO_PIN 13
@@ -12,9 +13,11 @@ uint8_t Keypad_numbers[3][4]=
   {'6','7','8','9'}
 };
 char PressedKey = '\0';
-char* localPassword ="54321";
+char localPassword[4] ={0};
 char enteredPassword[5] ={0};
 byte passIndex =0;
+byte attemptsIndex =10;
+boolean passwordAlive= false;
 byte i;
 typedef enum
 {
@@ -23,9 +26,9 @@ typedef enum
   STATE_VERIVCATION,
   STATE_PAUSED,
   STATE_ERROR,
-
 } stateMachine_t;
 stateMachine_t stateMachine =STATE_IDEL;
+
 void setup() {
   lockServo.attach(LOCK_SERVO_PIN);
   lockServo.write(45);
@@ -50,15 +53,35 @@ void loop() {
   {
     case STATE_IDEL:
     //Serial.println("Current State: STATE_IDEL");
-      if(PressedKey == 'R')
+      if((PressedKey == 'R') &&(passwordAlive == true) && (attemptsIndex >0))
       {
-        Serial.println("Access REQUSE Again!");
+        Serial.print("Access REQUSE Again!\nRemaining Attempts:");
+        attemptsIndex --;
+        Serial.println(attemptsIndex);
         stateMachine = STATE_REQUSET;
       }
-      else if(readKeypad() == 'R')
+      else if((passwordAlive == true) && (attemptsIndex >0))
       {
+        Serial.print("Remaining Attempts:");
+        Serial.println(attemptsIndex);
         stateMachine = STATE_REQUSET;
+      }
+      else if((readKeypad() == 'R') && ((attemptsIndex == 0)||passwordAlive == true))
+      {
+        Serial.println("Generate a new password...");
+        generate_secure_4digit_password();
+        Serial.println(localPassword);
+        passwordAlive = true;
+        attemptsIndex =10;
+        stateMachine = STATE_REQUSET;
+      }
+      else if((readKeypad() == 'R') && ((attemptsIndex ==0)||passwordAlive == false))
+      {
         Serial.println("Access REQUSET");
+        generate_secure_4digit_password();
+        Serial.println(localPassword);
+        passwordAlive = true;
+        attemptsIndex =10;
         stateMachine = STATE_REQUSET;
       }
     break;
@@ -66,7 +89,7 @@ void loop() {
     case STATE_REQUSET:
     Serial.println("Current State: STATE_REQUSET");
      passIndex =0;
-      while(passIndex < 5)
+      while(passIndex < 4)
       {
         PressedKey = readKeypad();
         if((PressedKey != '\0') && (PressedKey != 'R'))
@@ -100,6 +123,7 @@ void loop() {
       lockServo.write(45);
       Serial.println("PASSED ✔✔✔");
       digitalWrite(LED, 0);
+      passwordAlive = false;
       stateMachine = STATE_IDEL;
     break;
     case STATE_ERROR:
@@ -112,7 +136,7 @@ void loop() {
       digitalWrite(LED,0);
       delay(50);
     }
-    
+    (passwordAlive == true) ? (attemptsIndex--): 0;
     stateMachine = STATE_IDEL;
     break;
   }
@@ -141,4 +165,18 @@ char readKeypad() {
     digitalWrite(KeypadRow_pin[r], 0);
   }
   return '\0'; // No key pressed
+}
+
+
+
+void generate_secure_4digit_password() {
+    uint32_t random_number;
+    for (int j = 0; j < 4; j++) {
+        // Get 8 random bits (0-255) from hardware RNG
+        random_number = esp_random();
+        // Use o modulo 10 to get digit (0-9)
+        random_number %= 10;
+        // Build the 4-digit number
+        localPassword[j] = random_number+48;
+    }
 }
