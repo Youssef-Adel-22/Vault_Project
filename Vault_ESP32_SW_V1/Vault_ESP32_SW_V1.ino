@@ -30,8 +30,8 @@ typedef enum
 stateMachine_t stateMachine =STATE_IDEL;
 
 void setup() {
-  lockServo.attach(LOCK_SERVO_PIN);
-  lockServo.write(45);
+  lockServo.attach(LOCK_SERVO_PIN,1050, 1950);  // Slightly narrower than standard range);
+  lockServo.write(60);
   Serial.begin(9600);
 
 //Select pin mode for colums as input pulldown
@@ -118,9 +118,9 @@ void loop() {
     case STATE_PAUSED:
       Serial.println("Current State: STATE_PAUSED");
       digitalWrite(LED, 1);
-      lockServo.write(0);
+      lockServo.write(5);
       delay(1000);
-      lockServo.write(45);
+      lockServo.write(60);
       Serial.println("PASSED ✔✔✔");
       digitalWrite(LED, 0);
       passwordAlive = false;
